@@ -138,6 +138,96 @@ def listar_clientes():
 
 
 # ─────────────────────────────────────────────
+#  ACTUALIZAR UN CLIENTE
+# ─────────────────────────────────────────────
+
+def actualizar_cliente():
+    print("\n── Actualizar cliente ──")
+
+    opciones = list(PARTICION.keys())
+    print("Sucursales disponibles:", ", ".join(opciones))
+    sucursal = input("Sucursal: ").strip().lower()
+
+    try:
+        nodo = nodo_para(sucursal)
+    except ValueError as e:
+        print(f"  [!] {e}")
+        return
+
+    rfc = input("RFC del cliente a actualizar: ").strip().upper()
+
+    print("Deja en blanco los campos que no quieras cambiar.")
+    nombre  = input("Nuevo nombre: ").strip() or None
+    ap_pat  = input("Nuevo apellido paterno: ").strip() or None
+    ap_mat  = input("Nuevo apellido materno: ").strip() or None
+
+    campos, valores = [], []
+    if nombre  is not None: campos.append("Nombre = %s");          valores.append(nombre)
+    if ap_pat  is not None: campos.append("ApellidoPaterno = %s"); valores.append(ap_pat)
+    if ap_mat  is not None: campos.append("ApellidoMaterno = %s"); valores.append(ap_mat)
+
+    if not campos:
+        print("  [!] No ingresaste ningún dato para actualizar.")
+        return
+
+    valores.append(rfc)
+    sql = f"UPDATE Clientes SET {', '.join(campos)} WHERE RFC = %s"
+
+    try:
+        conn = conectar(nodo)
+        with conn.cursor() as cur:
+            cur.execute(sql, valores)
+            afectados = cur.rowcount
+        conn.commit()
+        conn.close()
+        if afectados:
+            print(f"\n  ✅ Cliente '{rfc}' actualizado correctamente.")
+        else:
+            print(f"\n  [!] No se encontró ningún cliente con RFC '{rfc}'.")
+    except Exception as e:
+        print(f"\n  ❌ Error al actualizar: {e}")
+
+
+# ─────────────────────────────────────────────
+#  ELIMINAR UN CLIENTE
+# ─────────────────────────────────────────────
+
+def eliminar_cliente():
+    print("\n── Eliminar cliente ──")
+
+    opciones = list(PARTICION.keys())
+    print("Sucursales disponibles:", ", ".join(opciones))
+    sucursal = input("Sucursal: ").strip().lower()
+
+    try:
+        nodo = nodo_para(sucursal)
+    except ValueError as e:
+        print(f"  [!] {e}")
+        return
+
+    rfc = input("RFC del cliente a eliminar: ").strip().upper()
+    confirmar = input(f"  ¿Seguro que deseas eliminar al cliente con RFC '{rfc}'? (s/n): ").strip().lower()
+
+    if confirmar != "s":
+        print("  Operación cancelada.")
+        return
+
+    try:
+        conn = conectar(nodo)
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM Clientes WHERE RFC = %s", (rfc,))
+            afectados = cur.rowcount
+        conn.commit()
+        conn.close()
+        if afectados:
+            print(f"\n  ✅ Cliente '{rfc}' eliminado (junto con sus direcciones).")
+        else:
+            print(f"\n  [!] No se encontró ningún cliente con RFC '{rfc}'.")
+    except Exception as e:
+        print(f"\n  ❌ Error al eliminar: {e}")
+
+
+# ─────────────────────────────────────────────
 #  MENÚ PRINCIPAL
 # ─────────────────────────────────────────────
 
@@ -148,6 +238,8 @@ if __name__ == "__main__":
         print("════════════════════════════════════════")
         print("  1. Insertar cliente nuevo")
         print("  2. Ver todos los clientes")
+        print("  3. Actualizar cliente")
+        print("  4. Eliminar cliente")
         print("  0. Salir")
         print("────────────────────────────────────────")
 
@@ -157,6 +249,10 @@ if __name__ == "__main__":
             insertar_cliente()
         elif opcion == "2":
             listar_clientes()
+        elif opcion == "3":
+            actualizar_cliente()
+        elif opcion == "4":
+            eliminar_cliente()
         elif opcion == "0":
             print("\n  Hasta luego.\n")
             break
