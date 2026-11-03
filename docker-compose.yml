@@ -1,0 +1,48 @@
+# Nodos (sucursales) del sistema distribuido.
+# Levantar Morelia y Pátzcuaro:   docker compose up -d
+# Levantar además Uruapan (extra): docker compose --profile extra up -d
+# Borrar todo y empezar de cero:   docker compose --profile extra down -v
+
+services:
+  morelia:
+    image: mariadb:11
+    container_name: nodo_morelia
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: sucursal
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - morelia_data:/var/lib/mysql
+
+  patzcuaro:
+    image: mariadb:11
+    container_name: nodo_patzcuaro
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: sucursal
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - patzcuaro_data:/var/lib/mysql
+
+  # Nodo extra para probar la función "agregar nodo"
+  uruapan:
+    profiles: ["extra"]
+    image: mariadb:11
+    container_name: nodo_uruapan
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: sucursal
+    ports:
+      - "3309:3306"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - uruapan_data:/var/lib/mysql
+
+volumes:
+  morelia_data:
+  patzcuaro_data:
+  uruapan_data:
