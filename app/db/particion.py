@@ -10,7 +10,6 @@ El nodo al que pertenece una sucursal es el único que guarda y consulta sus reg
 PARTICION = {
     "morelia":   "morelia",
     "patzcuaro": "patzcuaro",
-    "uruapan":   "uruapan",   # disponible solo con --profile extra
 }
 
 
