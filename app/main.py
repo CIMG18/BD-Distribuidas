@@ -141,90 +141,315 @@ def listar_clientes():
 #  ACTUALIZAR UN CLIENTE
 # ─────────────────────────────────────────────
 
+
 def actualizar_cliente():
     print("\n── Actualizar cliente ──")
 
-    opciones = list(PARTICION.keys())
-    print("Sucursales disponibles:", ", ".join(opciones))
+    print("Sucursales disponibles:", ", ".join(PARTICION))
     sucursal = input("Sucursal: ").strip().lower()
 
     try:
         nodo = nodo_para(sucursal)
     except ValueError as e:
-        print(f"  [!] {e}")
+        print(f"[!] {e}")
         return
 
     rfc = input("RFC del cliente a actualizar: ").strip().upper()
-
-    print("Deja en blanco los campos que no quieras cambiar.")
-    nombre  = input("Nuevo nombre: ").strip() or None
-    ap_pat  = input("Nuevo apellido paterno: ").strip() or None
-    ap_mat  = input("Nuevo apellido materno: ").strip() or None
-
-    campos, valores = [], []
-    if nombre  is not None: campos.append("Nombre = %s");          valores.append(nombre)
-    if ap_pat  is not None: campos.append("ApellidoPaterno = %s"); valores.append(ap_pat)
-    if ap_mat  is not None: campos.append("ApellidoMaterno = %s"); valores.append(ap_mat)
-
-    if not campos:
-        print("  [!] No ingresaste ningún dato para actualizar.")
-        return
-
-    valores.append(rfc)
-    sql = f"UPDATE Clientes SET {', '.join(campos)} WHERE RFC = %s"
+    conn = None
 
     try:
         conn = conectar(nodo)
+
         with conn.cursor() as cur:
-            cur.execute(sql, valores)
-            afectados = cur.rowcount
+            cur.execute(
+                "SELECT * FROM Clientes WHERE RFC = %s",
+                (rfc,)
+            )
+            cliente = cur.fetchone()
+
+            if not cliente:
+                print("No se encontró el cliente.")
+                return
+
+            cur.execute(
+                "SELECT * FROM Direcciones WHERE idCliente = %s",
+                (cliente["Id"],)
+            )
+            direcciones = cur.fetchall()
+
+        print(f"\nCliente: {cliente['Nombre']} {cliente['ApellidoPaterno']}")
+        print("Deja vacío cualquier campo que no quieras modificar.")
+
+        campos_cliente = {
+            "Nombre": "Nombre",
+            "ApellidoPaterno": "Apellido paterno",
+            "ApellidoMaterno": "Apellido materno",
+            "RFC": "RFC"
+        }
+
+        cambios_cliente = {}
+
+        for campo, etiqueta in campos_cliente.items():
+            valor = input(f"{etiqueta} [{cliente[campo] or ''}]: ").strip()
+
+            if valor:
+                cambios_cliente[campo] = (
+                    valor.upper() if campo == "RFC" else valor
+                )
+
+        cambios_direccion = {}
+        direccion_elegida = None
+
+        if direcciones:
+            print("\nDirecciones del cliente:")
+
+            for i, d in enumerate(direcciones, 1):
+                print(
+                    f"{i}. {d['Calle']} {d['Numero']}, "
+                    f"{d['Colonia']}, {d['Estado']} {d['CP']}"
+                )
+
+            seleccion = input(
+                "Número de dirección a modificar "
+                "(Enter para omitir): "
+            ).strip()
+
+            if seleccion:
+                if not seleccion.isdigit() or not (
+                    1 <= int(seleccion) <= len(direcciones)
+                ):
+                    print("Dirección no válida.")
+                    return
+
+                direccion_elegida = direcciones[int(seleccion) - 1]
+
+                for campo in ("Calle", "Numero", "Colonia", "Estado", "CP"):
+                    valor = input(
+                        f"{campo} [{direccion_elegida[campo]}]: "
+                    ).strip()
+
+                    if valor:
+                        if campo == "CP" and (
+                            len(valor) != 5 or not valor.isdigit()
+                        ):
+                            print("El CP debe contener exactamente 5 dígitos.")
+                            return
+
+                        cambios_direccion[campo] = valor
+
+        if not cambios_cliente and not cambios_direccion:
+            print("No se realizaron cambios.")
+            return
+
+        print("\nSe actualizarán los datos seleccionados.")
+        confirmar = input("¿Confirmas? (s/n): ").strip().lower()
+
+        if confirmar != "s":
+            print("Operación cancelada.")
+            return
+
+        conn.begin()
+
+        with conn.cursor() as cur:
+            if cambios_cliente:
+                campos = ", ".join(
+                    f"{campo} = %s" for campo in cambios_cliente
+                )
+                valores = list(cambios_cliente.values())
+
+                cur.execute(
+                    f"UPDATE Clientes SET {campos} WHERE Id = %s",
+                    valores + [cliente["Id"]]
+                )
+
+            if cambios_direccion:
+                campos = ", ".join(
+                    f"{campo} = %s" for campo in cambios_direccion
+                )
+                valores = list(cambios_direccion.values())
+
+                cur.execute(
+                    f"UPDATE Direcciones SET {campos} WHERE Id = %s",
+                    valores + [direccion_elegida["Id"]]
+                )
+
         conn.commit()
-        conn.close()
-        if afectados:
-            print(f"\n  ✅ Cliente '{rfc}' actualizado correctamente.")
-        else:
-            print(f"\n  [!] No se encontró ningún cliente con RFC '{rfc}'.")
+        print("\n✅ Datos actualizados correctamente.")
+
     except Exception as e:
-        print(f"\n  ❌ Error al actualizar: {e}")
+        if conn is not None:
+            conn.rollback()
+        print(f"\n❌ Error al actualizar: {e}")
+
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 # ─────────────────────────────────────────────
 #  ELIMINAR UN CLIENTE
 # ─────────────────────────────────────────────
 
+
 def eliminar_cliente():
     print("\n── Eliminar cliente ──")
 
-    opciones = list(PARTICION.keys())
-    print("Sucursales disponibles:", ", ".join(opciones))
+    print("Sucursales disponibles:", ", ".join(PARTICION))
     sucursal = input("Sucursal: ").strip().lower()
 
     try:
         nodo = nodo_para(sucursal)
     except ValueError as e:
-        print(f"  [!] {e}")
+        print(f"[!] {e}")
         return
 
-    rfc = input("RFC del cliente a eliminar: ").strip().upper()
-    confirmar = input(f"  ¿Seguro que deseas eliminar al cliente con RFC '{rfc}'? (s/n): ").strip().lower()
+    rfc = input("RFC del cliente: ").strip().upper()
 
-    if confirmar != "s":
-        print("  Operación cancelada.")
+    if not rfc:
+        print("[!] Debes ingresar un RFC.")
         return
+
+    conn = None
 
     try:
         conn = conectar(nodo)
+
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM Clientes WHERE RFC = %s", (rfc,))
-            afectados = cur.rowcount
+            cur.execute(
+                "SELECT Id, Nombre, ApellidoPaterno FROM Clientes WHERE RFC = %s",
+                (rfc,)
+            )
+            clientes = cur.fetchall()
+
+        if not clientes:
+            print("No se encontró ningún cliente con ese RFC.")
+            return
+
+        if len(clientes) > 1:
+            print("Hay varios clientes con ese RFC. Operación cancelada.")
+            return
+
+        cliente = clientes[0]
+        print(f"Cliente: {cliente['Nombre']} {cliente['ApellidoPaterno']}")
+
+        confirmar = input("¿Confirmas la eliminación? (s/n): ").strip().lower()
+
+        if confirmar != "s":
+            print("Operación cancelada.")
+            return
+
+        conn.begin()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM Direcciones WHERE idCliente = %s",
+                (cliente["Id"],)
+            )
+
+            cur.execute(
+                "DELETE FROM Clientes WHERE Id = %s",
+                (cliente["Id"],)
+            )
+
         conn.commit()
-        conn.close()
-        if afectados:
-            print(f"\n  ✅ Cliente '{rfc}' eliminado (junto con sus direcciones).")
-        else:
-            print(f"\n  [!] No se encontró ningún cliente con RFC '{rfc}'.")
+        print("✅ Cliente y sus direcciones eliminados correctamente.")
+
     except Exception as e:
-        print(f"\n  ❌ Error al eliminar: {e}")
+        if conn is not None:
+            conn.rollback()
+        print(f"❌ Error al eliminar: {e}")
+
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def buscar_clientes():
+    print("\n── Búsqueda global de clientes ──")
+    print("1. Buscar por nombre")
+    print("2. Buscar por RFC")
+    print("3. Buscar por domicilio")
+
+    opcion = input("Elige una opción: ").strip()
+
+    columnas = {
+        "1": "CONCAT_WS(' ', c.Nombre, c.ApellidoPaterno, c.ApellidoMaterno)",
+        "2": "c.RFC",
+        "3": "CONCAT_WS(' ', d.Calle, d.Numero, d.Colonia, d.Estado, d.CP)"
+    }
+
+    if opcion not in columnas:
+        print("Opción no válida.")
+        return
+
+    busqueda = input("¿Qué deseas buscar?: ").strip()
+
+    if not busqueda:
+        print("Debes escribir un valor.")
+        return
+
+    resultados = []
+    errores = []
+
+    for sucursal, nodo in PARTICION.items():
+        try:
+            conn = conectar(nodo)
+
+            try:
+                with conn.cursor() as cur:
+                    sql = f"""
+                        SELECT c.Nombre, c.ApellidoPaterno,
+                               c.ApellidoMaterno, c.RFC,
+                               d.Calle, d.Numero, d.Colonia,
+                               d.Estado, d.CP
+                        FROM Clientes c
+                        LEFT JOIN Direcciones d
+                            ON d.idCliente = c.Id
+                        WHERE {columnas[opcion]} LIKE %s
+                    """
+
+                    cur.execute(sql, (f"%{busqueda}%",))
+                    filas = cur.fetchall()
+
+                    for fila in filas:
+                        fila["Sucursal"] = sucursal
+                        resultados.append(fila)
+            finally:
+                conn.close()
+
+        except Exception as e:
+            errores.append(sucursal)
+            print(f"Error al consultar {sucursal}: {e}")
+
+    if not resultados:
+        if errores:
+            print("\nNo se encontraron coincidencias en los nodos consultados.")
+            print("La búsqueda está incompleta porque algunos nodos fallaron.")
+        else:
+            print("\nNo se encontraron coincidencias.")
+        return
+
+    print(f"\nSe encontraron {len(resultados)} resultado(s):\n")
+
+    for cliente in resultados:
+        print(f"Sucursal: {cliente['Sucursal']}")
+        print(
+            f"Nombre: {cliente['Nombre']} "
+            f"{cliente['ApellidoPaterno']} "
+            f"{cliente['ApellidoMaterno'] or ''}"
+        )
+        print(f"RFC: {cliente['RFC']}")
+        print(
+            f"Dirección: {cliente['Calle']} "
+            f"{cliente['Numero']}, "
+            f"{cliente['Colonia']}, "
+            f"{cliente['Estado']} "
+            f"{cliente['CP']}"
+        )
+        print("-" * 40)
+
+    if errores:
+        print("Advertencia: resultados parciales; hubo nodos no disponibles.")
 
 
 # ─────────────────────────────────────────────
@@ -240,6 +465,7 @@ if __name__ == "__main__":
         print("  2. Ver todos los clientes")
         print("  3. Actualizar cliente")
         print("  4. Eliminar cliente")
+        print("  5. Buscar clientes")
         print("  0. Salir")
         print("────────────────────────────────────────")
 
@@ -253,6 +479,8 @@ if __name__ == "__main__":
             actualizar_cliente()
         elif opcion == "4":
             eliminar_cliente()
+        elif opcion == "5":
+            buscar_clientes()
         elif opcion == "0":
             print("\n  Hasta luego.\n")
             break

@@ -1,4 +1,10 @@
 import pymysql
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+import pymysql
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # Configuración de cada nodo: host, puerto, usuario y contraseña
 NODOS = {
@@ -6,14 +12,14 @@ NODOS = {
         "host":     "127.0.0.1",
         "port":     3307,
         "user":     "root",
-        "password": "root",
+        "password": os.getenv("DB_ROOT_PASSWORD"),
         "database": "sucursal",
     },
     "patzcuaro": {
         "host":     "127.0.0.1",
         "port":     3308,
         "user":     "root",
-        "password": "root",
+        "password": os.getenv("DB_ROOT_PASSWORD"),
         "database": "sucursal",
     },
     # Nodo extra (solo disponible cuando se levanta con --profile extra)

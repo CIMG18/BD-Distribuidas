@@ -5,7 +5,6 @@ Verifica que cada nodo responda correctamente y que el esquema esté aplicado.
 Ejecutar desde la raíz del proyecto:
     python3 app/test_conexion.py
 """
-
 from db.conexion import conectar, NODOS
 
 
