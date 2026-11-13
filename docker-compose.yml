@@ -8,24 +8,26 @@ services:
     image: mariadb:11
     container_name: nodo_morelia
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Configura DB_ROOT_PASSWORD}
       MARIADB_DATABASE: sucursal
     ports:
       - "3307:3306"
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/morelia.sql:/docker-entrypoint-initdb.d/02-datos.sql:ro
       - morelia_data:/var/lib/mysql
 
   patzcuaro:
     image: mariadb:11
     container_name: nodo_patzcuaro
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Configura DB_ROOT_PASSWORD}
       MARIADB_DATABASE: sucursal
     ports:
       - "3308:3306"
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/patzcuaro.sql:/docker-entrypoint-initdb.d/02-datos.sql:ro
       - patzcuaro_data:/var/lib/mysql
 
   # Nodo extra para probar la función "agregar nodo"
@@ -39,7 +41,7 @@ services:
     ports:
       - "3309:3306"
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
       - uruapan_data:/var/lib/mysql
 
 volumes:
