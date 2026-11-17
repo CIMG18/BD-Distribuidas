@@ -1,20 +1,18 @@
 """
-Lógica de partición: decide qué nodo almacena los datos de cada sucursal.
-
-Regla: cada sucursal es dueña de sus propios datos.
-El nodo al que pertenece una sucursal es el único que guarda y consulta sus registros.
+Lógica de partición: cada sucursal almacena
+sus datos en su nodo correspondiente.
 """
 
-# Mapa sucursal → nodo
-# Si se agrega una nueva sucursal, solo hay que añadirla aquí.
+from db.conexion import NODOS
+
+# Crear automáticamente el mapa sucursal → nodo
 PARTICION = {
-    "morelia":   "morelia",
-    "patzcuaro": "patzcuaro",
+    nombre: nombre
+    for nombre in NODOS
 }
 
 
 def nodo_para(sucursal):
-    # Devuelve el nombre del nodo que le corresponde a la sucursal indicada
     sucursal = sucursal.lower().strip()
 
     if sucursal not in PARTICION:

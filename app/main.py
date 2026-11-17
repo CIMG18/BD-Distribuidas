@@ -10,9 +10,30 @@ Ejecutar desde la raíz del proyecto:
 
 import uuid
 import pymysql
-
+import os
 from db.conexion import conectar
 from db.particion import nodo_para, PARTICION
+from getpass import getpass
+from db.conexion import conectar, NODOS, guardar_nodo
+
+def buscar_rfc_global(rfc):
+    for nodo in PARTICION.values():
+        conexion = conectar(nodo)
+
+        try:
+            with conexion.cursor() as cursor:
+                cursor.execute(
+                    "SELECT Id FROM Clientes WHERE RFC = %s",
+                    (rfc,)
+                )
+
+                if cursor.fetchone():
+                    return nodo
+
+        finally:
+            conexion.close()
+
+    return None
 
 
 # ─────────────────────────────────────────────
@@ -38,6 +59,9 @@ def insertar_cliente():
     ap_pat   = input("Apellido paterno: ").strip()
     ap_mat   = input("Apellido materno (Enter para omitir): ").strip() or None
     rfc      = input("RFC: ").strip().upper()
+    if len(rfc) != 13:
+        print("\n❌ Error: El RFC debe tener exactamente 13 caracteres.")
+        return
 
     # Datos de dirección
     print("\n── Dirección ──")
@@ -50,6 +74,20 @@ def insertar_cliente():
     # Generar UUIDs
     id_cliente   = str(uuid.uuid4())
     id_direccion = str(uuid.uuid4())
+
+    try:
+        nodo_existente = buscar_rfc_global(rfc)
+
+        if nodo_existente:
+            print(
+                f"\n❌ El RFC {rfc} ya está registrado "
+                f"en la sucursal {nodo_existente}."
+            )
+            return
+
+    except Exception as e:
+        print(f"\n❌ No se pudo verificar el RFC en todos los nodos: {e}")
+        return
 
     try:
         conn = conectar(nodo)
@@ -193,9 +231,13 @@ def actualizar_cliente():
             valor = input(f"{etiqueta} [{cliente[campo] or ''}]: ").strip()
 
             if valor:
-                cambios_cliente[campo] = (
-                    valor.upper() if campo == "RFC" else valor
-                )
+                if campo == "RFC" and len(valor) != 13:
+                    print("❌ El RFC debe tener exactamente 13 caracteres.")
+                return
+
+        cambios_cliente[campo] = (
+            valor.upper() if campo == "RFC" else valor
+        )   
 
         cambios_direccion = {}
         direccion_elegida = None
@@ -452,6 +494,87 @@ def buscar_clientes():
         print("Advertencia: resultados parciales; hubo nodos no disponibles.")
 
 
+def agregar_nodo():
+    print("\n── Agregar nuevo nodo ──")
+
+    nombre = input("Nombre de la sucursal: ").strip().lower()
+
+    if not nombre or not nombre.replace("_", "").isalnum():
+        print("❌ Nombre de sucursal no válido.")
+        return
+
+    if nombre in NODOS:
+        print("❌ Esta sucursal ya está registrada.")
+        return
+
+    host = input("Dirección IP del servidor: ").strip()
+
+    try:
+        puerto = int(input("Puerto de MariaDB: "))
+        if not 1 <= puerto <= 65535:
+            raise ValueError
+    except ValueError:
+        print("❌ Puerto no válido.")
+        return
+
+    usuario = input("Usuario: ").strip()
+    password = getpass("Contraseña: ")
+    database = input("Base de datos [sucursal]: ").strip() or "sucursal"
+
+    if not host or not usuario:
+        print("❌ Debes proporcionar un host y un usuario.")
+        return
+
+    configuracion = {
+        "host": host,
+        "port": puerto,
+        "user": usuario,
+        "password": password,
+        "database": database
+    }
+
+    # Comprobar conexión y estructura de tablas
+    try:
+        conexion = pymysql.connect(
+            **configuracion,
+            connect_timeout=5
+        )
+
+        try:
+            with conexion.cursor() as cursor:
+                cursor.execute("SHOW TABLES")
+                tablas = {fila[0] for fila in cursor.fetchall()}
+        finally:
+            conexion.close()
+
+        if not {"Clientes", "Direcciones"}.issubset(tablas):
+            print("❌ Faltan las tablas Clientes o Direcciones.")
+            return
+
+    except Exception as e:
+        print(f"❌ No se pudo conectar al nodo: {e}")
+        return
+
+    # La contraseña debe estar disponible al reiniciar
+    variable = f"DB_PASSWORD_{nombre.upper()}"
+
+    if os.getenv(variable) != password:
+        print(
+            f"\n❌ Antes de registrar el nodo, agrega "
+            f"{variable} a tu archivo .env con esta contraseña."
+        )
+        print("Reinicia la aplicación después de configurarla.")
+        return
+
+    try:
+        guardar_nodo(nombre, configuracion)
+        PARTICION[nombre] = nombre
+    except Exception as e:
+        print(f"❌ No se pudo guardar el nodo: {e}")
+        return
+
+    print(f"\n✅ Nodo '{nombre}' agregado correctamente.")
+
 # ─────────────────────────────────────────────
 #  MENÚ PRINCIPAL
 # ─────────────────────────────────────────────
@@ -466,6 +589,7 @@ if __name__ == "__main__":
         print("  3. Actualizar cliente")
         print("  4. Eliminar cliente")
         print("  5. Buscar clientes")
+        print("  6. Agregar nuevo nodo")
         print("  0. Salir")
         print("────────────────────────────────────────")
 
@@ -481,6 +605,8 @@ if __name__ == "__main__":
             eliminar_cliente()
         elif opcion == "5":
             buscar_clientes()
+        elif opcion == "6":
+            agregar_nodo()
         elif opcion == "0":
             print("\n  Hasta luego.\n")
             break
