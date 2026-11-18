@@ -42,7 +42,7 @@ if __name__ == "__main__":
     print("════════════════════════════════════════")
 
     # Probamos solo morelia y patzcuaro (los nodos siempre activos)
-    for nodo in ["morelia", "patzcuaro"]:
+    for nodo in NODOS:
         probar_nodo(nodo)
 
     print(f"\n{'─' * 40}")
