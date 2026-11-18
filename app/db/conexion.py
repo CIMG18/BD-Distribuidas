@@ -54,14 +54,14 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 # Configuración de cada nodo: host, puerto, usuario y contraseña
 NODOS = {
     "morelia": {
-        "host":     "127.0.0.1",
+        "host":     "172.20.10.3",
         "port":     3307,
         "user":     "root",
         "password": os.getenv("DB_ROOT_PASSWORD"),
         "database": "sucursal",
     },
     "patzcuaro": {
-        "host":     "127.0.0.1",
+        "host":     "172.20.10.4",
         "port":     3308,
         "user":     "root",
         "password": os.getenv("DB_ROOT_PASSWORD"),

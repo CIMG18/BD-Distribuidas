@@ -228,16 +228,19 @@ def actualizar_cliente():
         cambios_cliente = {}
 
         for campo, etiqueta in campos_cliente.items():
-            valor = input(f"{etiqueta} [{cliente[campo] or ''}]: ").strip()
+            valor = input(
+                f"{etiqueta} [{cliente[campo] or ''}]: "
+            ).strip()
 
             if valor:
                 if campo == "RFC" and len(valor) != 13:
                     print("❌ El RFC debe tener exactamente 13 caracteres.")
                     return
 
-        cambios_cliente[campo] = (
-            valor.upper() if campo == "RFC" else valor
-        )   
+                cambios_cliente[campo] = (
+                    valor.upper() if campo == "RFC" else valor
+                )
+
 
         cambios_direccion = {}
         direccion_elegida = None
