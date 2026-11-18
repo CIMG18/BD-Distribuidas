@@ -233,7 +233,7 @@ def actualizar_cliente():
             if valor:
                 if campo == "RFC" and len(valor) != 13:
                     print("❌ El RFC debe tener exactamente 13 caracteres.")
-                return
+                    return
 
         cambios_cliente[campo] = (
             valor.upper() if campo == "RFC" else valor
@@ -424,7 +424,7 @@ def buscar_clientes():
         print("Opción no válida.")
         return
 
-    busqueda = input("¿Qué deseas buscar?: ").strip()
+    busqueda = input("Ingresa el dato : ").strip()
 
     if not busqueda:
         print("Debes escribir un valor.")
@@ -582,7 +582,7 @@ def agregar_nodo():
 if __name__ == "__main__":
     while True:
         print("\n════════════════════════════════════════")
-        print("   BD DISTRIBUIDA — Morelia / Pátzcuaro  ")
+        print("        BASE DE DATOS DE CLIENTES  ")
         print("════════════════════════════════════════")
         print("  1. Insertar cliente nuevo")
         print("  2. Ver todos los clientes")
